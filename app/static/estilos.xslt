@@ -20,7 +20,7 @@
           padding: 8px;
           text-align: left;
         }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
         tr:nth-child(odd) { background-color: #ffffff; }
         th {
           background-color: #4275ff;
