@@ -207,6 +207,8 @@
           width: 100%;
           border-collapse: collapse;
           font-size: 0.95rem;
+          table-layout: fixed;
+          min-width: 800px;
         }
 
         th {
@@ -219,18 +221,59 @@
           position: sticky;
           top: 0;
           z-index: 10;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
+
+        th:nth-child(1) { width: 20%; }  /* Nombre */
+        th:nth-child(2) { width: 25%; }  /* Dirección */
+        th:nth-child(3) { width: 15%; }  /* Ciudad */
+        th:nth-child(4) { width: 20%; }  /* Horario */
+        th:nth-child(5) { width: 7%; }   /* EV Nivel 1 */
+        th:nth-child(6) { width: 7%; }   /* EV Nivel 2 */
+        th:nth-child(7) { width: 6%; }   /* Carga Rápida */
 
         td {
           padding: 16px 20px;
           border-bottom: 1px solid #f1f5f9;
           vertical-align: top;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
+
+        td:nth-child(1) { width: 20%; white-space: normal; }  /* Nombre */
+        td:nth-child(2) { width: 25%; white-space: normal; }  /* Dirección */
+        td:nth-child(3) { width: 15%; }  /* Ciudad */
+        td:nth-child(4) { width: 20%; white-space: normal; }  /* Horario */
+        td:nth-child(5) { width: 7%; text-align: center; }   /* EV Nivel 1 */
+        td:nth-child(6) { width: 7%; text-align: center; }   /* EV Nivel 2 */
+        td:nth-child(7) { width: 6%; text-align: center; }   /* Carga Rápida */
 
         tr:hover {
           background: #f8fafc;
           transform: scale(1.001);
           transition: all 0.2s ease;
+        }
+
+        /* Zebra stripes for better readability */
+        tbody tr:nth-child(even) {
+          background: #fafafa;
+        }
+
+        /* Sortable table headers */
+        th.sortable {
+          cursor: pointer;
+          user-select: none;
+        }
+        th.sortable i {
+          margin-left: 6px;
+          opacity: 0.6;
+          transition: transform 0.3s ease;
+        }
+        th.sortable.asc i {
+          transform: rotate(180deg);
         }
 
         .station-name {
@@ -464,7 +507,7 @@
               Resultados
             </div>
             <div class="results-count" id="resultsCount">
-              <xsl:value-of select="count(//row/row)"/> estaciones encontradas
+              <xsl:value-of select="count(//row)"/> estaciones encontradas
             </div>
           </div>
 
@@ -472,13 +515,13 @@
             <table id="dataTable">
               <thead>
                 <tr>
-                  <th>🏢 Nombre de la Estación</th>
-                  <th>📍 Dirección</th>
-                  <th>🏙️ Ciudad</th>
-                  <th>🕒 Horario de Acceso</th>
-                  <th>🔌 EV Nivel 1</th>
-                  <th>⚡ EV Nivel 2</th>
-                  <th>⚡ Carga Rápida</th>
+                  <th class="sortable">🏢 Nombre de la Estación <i class="fas fa-sort"></i></th>
+                  <th class="sortable">📍 Dirección <i class="fas fa-sort"></i></th>
+                  <th class="sortable">🏙️ Ciudad <i class="fas fa-sort"></i></th>
+                  <th class="sortable">🕒 Horario de Acceso <i class="fas fa-sort"></i></th>
+                  <th class="sortable">🔌 EV Nivel 1 <i class="fas fa-sort"></i></th>
+                  <th class="sortable">⚡ EV Nivel 2 <i class="fas fa-sort"></i></th>
+                  <th class="sortable">⚡ Carga Rápida <i class="fas fa-sort"></i></th>
                 </tr>
               </thead>
               <tbody id="tableBody">
@@ -549,7 +592,7 @@
         </div>
       </div>
 
-      <script>
+      <script><![CDATA[
         let debounceTimer;
         let opcionesCache = null;
 
@@ -669,6 +712,44 @@
           debounceTimer = setTimeout(aplicarFiltros, 300);
         }
 
+        /* Tabla: Ordenamiento básico por columna */
+        function sortTable(columnIndex) {
+          const table = document.getElementById('dataTable');
+          const tbody = table.tBodies[0];
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+
+          const currentSortCol = table.getAttribute('data-sort-col');
+          const currentSortDir = table.getAttribute('data-sort-dir') || 'asc';
+          const ascending = !(currentSortCol == columnIndex && currentSortDir === 'asc');
+
+          rows.sort((a, b) => {
+            let aText = a.children[columnIndex].innerText.trim().toLowerCase();
+            let bText = b.children[columnIndex].innerText.trim().toLowerCase();
+
+            if (!isNaN(aText) && !isNaN(bText)) {
+              aText = parseFloat(aText);
+              bText = parseFloat(bText);
+            }
+
+            if (aText < bText) return ascending ? -1 : 1;
+            if (aText > bText) return ascending ? 1 : -1;
+            return 0;
+          });
+
+          rows.forEach(row => tbody.appendChild(row));
+
+          table.setAttribute('data-sort-col', columnIndex);
+          table.setAttribute('data-sort-dir', ascending ? 'asc' : 'desc');
+
+          // Actualizar estado de encabezados
+          document.querySelectorAll('#dataTable th').forEach((th, i) => {
+            th.classList.remove('asc');
+            if (i === columnIndex && ascending) {
+              th.classList.add('asc');
+            }
+          });
+        }
+
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
           cargarOpciones();
@@ -683,8 +764,13 @@
           document.getElementById('ev_nivel1').addEventListener('change', aplicarFiltros);
           document.getElementById('ev_nivel2').addEventListener('change', aplicarFiltros);
           document.getElementById('fast_charge').addEventListener('change', aplicarFiltros);
+
+          // Ordenamiento de columnas
+          document.querySelectorAll('#dataTable th.sortable').forEach((th, idx) => {
+            th.addEventListener('click', () => sortTable(idx));
+          });
         });
-      </script>
+      ]]></script>
     </body>
     </html>
   </xsl:template>
